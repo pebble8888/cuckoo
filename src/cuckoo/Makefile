@@ -14,7 +14,8 @@ GCC ?= gcc $(GCC_ARCH_FLAGS) -std=gnu11 $(CFLAGS)
 BLAKE_2B_SRC ?= ../crypto/blake2b-ref.c
 NVCC ?= nvcc -std=c++11 
 
-all : simpletest leantest meantest
+#all : simpletest leantest meantest
+all : simpletest
 
 simpletest:     simple19
 	./simple19 -n 38

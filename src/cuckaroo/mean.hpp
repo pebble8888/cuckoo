@@ -224,7 +224,7 @@ typedef u32 zbucket32[NTRIMMEDZ];
 // maintains set of trimmable edges
 class edgetrimmer {
 public:
-  siphash_keys sip_keys;
+  Siphash_keys sip_keys;
   yzbucket<ZBUCKETSIZE> *buckets;
   yzbucket<TBUCKETSIZE> *tbuckets;
   zbucket8 *tdegs;
@@ -283,7 +283,7 @@ public:
       dst.matrixv(my);
       for (; edge0 < endedge0; edge0 += NEBS) {
 #if NSIPHASH == 1
-        siphash_state shs(sip_keys);
+        Siphash_state shs(sip_keys);
         for (u32 e = 0; e < NEBS; e += NSIPHASH) {
           shs.hash24(edge0 + e);
           buf[e] = shs.xor_lanes();
@@ -931,7 +931,7 @@ public:
     for (u32 my = starty; my < endy; my++, endedge0 += NYZ) {
       for (; edge0 < endedge0; edge0 += NEBS) {
 #if NSIPHASH == 1
-        siphash_state shs(trimmer.sip_keys);
+        Siphash_state shs(trimmer.sip_keys);
         for (u32 e = 0; e < NEBS; e += NSIPHASH) {
           shs.hash24(edge0 + e);
           buf[e] = shs.xor_lanes();

@@ -74,7 +74,7 @@
 #ifdef __AVX2__
 
 // 4-way sipHash-2-4 specialized to precomputed key and 8 byte nonces
-void siphash24x4(const siphash_keys *keys, const uint64_t *indices, uint64_t *hashes) {
+void siphash24x4(const Siphash_keys *keys, const uint64_t *indices, uint64_t *hashes) {
   const __m256i packet = _mm256_load_si256((__m256i *)indices);
   __m256i v0 = _mm256_set1_epi64x(keys->k0);
   __m256i v1 = _mm256_set1_epi64x(keys->k1);
@@ -90,7 +90,7 @@ void siphash24x4(const siphash_keys *keys, const uint64_t *indices, uint64_t *ha
 }
 
 // 8-way sipHash-2-4 specialized to precomputed key and 8 byte nonces
-void siphash24x8(const siphash_keys *keys, const uint64_t *indices, uint64_t *hashes) {
+void siphash24x8(const Siphash_keys *keys, const uint64_t *indices, uint64_t *hashes) {
   const __m256i packet0 = _mm256_load_si256((__m256i *)indices);
   const __m256i packet4 = _mm256_load_si256((__m256i *)(indices+4));
   __m256i v0, v1, v2, v3, v4, v5, v6, v7;
@@ -110,7 +110,7 @@ void siphash24x8(const siphash_keys *keys, const uint64_t *indices, uint64_t *ha
 }
 
 // 16-way sipHash-2-4 specialized to precomputed key and 8 byte nonces
-void siphash24x16(const siphash_keys *keys, const uint64_t *indices, uint64_t *hashes) {
+void siphash24x16(const Siphash_keys *keys, const uint64_t *indices, uint64_t *hashes) {
   const __m256i packet0 = _mm256_load_si256((__m256i *)indices);
   const __m256i packet4 = _mm256_load_si256((__m256i *)(indices+4));
   const __m256i packet8 = _mm256_load_si256((__m256i *)(indices+8));
@@ -138,7 +138,7 @@ void siphash24x16(const siphash_keys *keys, const uint64_t *indices, uint64_t *h
 #elif defined __SSE2__
 
 // 2-way sipHash-2-4 specialized to precomputed key and 8 byte nonces
-void siphash24x2(const siphash_keys *keys, const uint64_t *indices, uint64_t *hashes) {
+void siphash24x2(const Siphash_keys *keys, const uint64_t *indices, uint64_t *hashes) {
   __m128i v0, v1, v2, v3, mi;
   v0 = _mm_set1_epi64x(keys->k0);
   v1 = _mm_set1_epi64x(keys->k1);
@@ -158,7 +158,7 @@ void siphash24x2(const siphash_keys *keys, const uint64_t *indices, uint64_t *ha
 }
 
 // 4-way sipHash-2-4 specialized to precomputed key and 8 byte nonces
-void siphash24x4(const siphash_keys *keys, const uint64_t *indices, uint64_t *hashes) {
+void siphash24x4(const Siphash_keys *keys, const uint64_t *indices, uint64_t *hashes) {
   __m128i v0, v1, v2, v3, mi, v4, v5, v6, v7, m2;
   v4 = v0 = _mm_set1_epi64x(keys->k0);
   v5 = v1 = _mm_set1_epi64x(keys->k1);
@@ -193,7 +193,7 @@ void siphash24x4(const siphash_keys *keys, const uint64_t *indices, uint64_t *ha
 #define NSIPHASH 1
 #endif
 
-void siphash24xN(const siphash_keys *keys, const uint64_t *indices, uint64_t * hashes) {
+void siphash24xN(const Siphash_keys *keys, const uint64_t *indices, uint64_t * hashes) {
 #if NSIPHASH == 1
   *hashes = keys->siphash24(*indices);
 #elif NSIPHASH == 2  

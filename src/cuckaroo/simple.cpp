@@ -18,7 +18,7 @@ typedef unsigned char u8;
 
 class cuckoo_ctx {
 public:
-  siphash_keys sip_keys;
+  Siphash_keys sip_keys;
   word_t easiness;
   graph<word_t> cg;
 

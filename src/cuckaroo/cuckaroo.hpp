@@ -79,15 +79,15 @@ struct SolverParams {
 // Solutions result structs to be instantiated by caller,
 // and filled by solver if desired
 struct Solution {
- u64 id = 0;
- u64 nonce = 0;
- u64 proof[PROOFSIZE];
+    u64 id = 0;
+    u64 nonce = 0;
+    u64 proof[PROOFSIZE];
 };
 
 struct SolverSolutions {
- u32 edge_bits = 0;
- u32 num_sols = 0;
- Solution sols[MAX_SOLS];
+    u32 edge_bits = 0;
+    u32 num_sols = 0;
+    Solution sols[MAX_SOLS];
 };
 
 #define MAX_NAME_LEN 256
@@ -111,63 +111,90 @@ struct SolverStats {
 	u64 last_solution_time = 0;
 };
 
-enum verify_code { POW_OK, POW_HEADER_LENGTH, POW_TOO_BIG, POW_TOO_SMALL, POW_NON_MATCHING, POW_BRANCH, POW_DEAD_END, POW_SHORT_CYCLE};
-const char *errstr[] = { "OK", "wrong header length", "edge too big", "edges not ascending", "endpoints don't match up", "branch in cycle", "cycle dead ends", "cycle too short"};
+enum verify_code { 
+    POW_OK, 
+    POW_HEADER_LENGTH, 
+    POW_TOO_BIG, 
+    POW_TOO_SMALL, 
+    POW_NON_MATCHING, 
+    POW_BRANCH, 
+    POW_DEAD_END, 
+    POW_SHORT_CYCLE
+};
+const char *errstr[] = {
+    "OK", 
+    "wrong header length", 
+    "edge too big", 
+    "edges not ascending", 
+    "endpoints don't match up", 
+    "branch in cycle", 
+    "cycle dead ends", 
+    "cycle too short"
+};
 
 // fills buffer with EDGE_BLOCK_SIZE siphash outputs for block containing edge in cuckaroo graph
 // return siphash output for given edge
-u64 sipblock(siphash_keys &keys, const word_t edge, u64 *buf) {
-  siphash_state shs(keys);
-  word_t edge0 = edge & ~EDGE_BLOCK_MASK;
-  for (u32 i=0; i < EDGE_BLOCK_SIZE; i++) {
-    shs.hash24(edge0 + i);
-    buf[i] = shs.xor_lanes();
-  }
-  const u64 last = buf[EDGE_BLOCK_MASK];
-  for (u32 i=0; i < EDGE_BLOCK_MASK; i++)
-    buf[i] ^= last;
-  return buf[edge & EDGE_BLOCK_MASK];
+u64 sipblock(Siphash_keys &keys, const word_t edge, u64 *buf) {
+    Siphash_state shs(keys);
+    word_t edge0 = edge & ~EDGE_BLOCK_MASK;
+    for (u32 i=0; i < EDGE_BLOCK_SIZE; i++) {
+        shs.hash24(edge0 + i);
+        buf[i] = shs.xor_lanes();
+    }
+    const u64 last = buf[EDGE_BLOCK_MASK];
+    for (u32 i=0; i < EDGE_BLOCK_MASK; i++) {
+        buf[i] ^= last;
+    }
+    return buf[edge & EDGE_BLOCK_MASK];
 }
 
 // verify that edges are ascending and form a cycle in header-generated graph
-int verify(word_t edges[PROOFSIZE], siphash_keys &keys) {
-  word_t xor0 = 0, xor1 = 0;
-  u64 sips[EDGE_BLOCK_SIZE];
-  word_t uvs[2*PROOFSIZE];
+int verify(word_t edges[PROOFSIZE], Siphash_keys &keys) {
+    word_t xor0 = 0, xor1 = 0;
+    u64 sips[EDGE_BLOCK_SIZE];
+    word_t uvs[2*PROOFSIZE];
 
-  for (u32 n = 0; n < PROOFSIZE; n++) {
-    if (edges[n] > EDGEMASK)
-      return POW_TOO_BIG;
-    if (n && edges[n] <= edges[n-1])
-      return POW_TOO_SMALL;
-    u64 edge = sipblock(keys, edges[n], sips);
-    xor0 ^= uvs[2*n  ] = edge & EDGEMASK;
-    xor1 ^= uvs[2*n+1] = (edge >> 32) & EDGEMASK;
-  }
-  if (xor0 | xor1)              // optional check for obviously bad proofs
-    return POW_NON_MATCHING;
-  u32 n = 0, i = 0, j;
-  do {                        // follow cycle
-    for (u32 k = j = i; (k = (k+2) % (2*PROOFSIZE)) != i; ) {
-      if (uvs[k] == uvs[i]) { // find other edge endpoint identical to one at i
-        if (j != i)           // already found one before
-          return POW_BRANCH;
-        j = k;
-      }
+    for (u32 n = 0; n < PROOFSIZE; n++) {
+        if (edges[n] > EDGEMASK) {
+            return POW_TOO_BIG;
+        }
+        if (n && edges[n] <= edges[n-1]) {
+            return POW_TOO_SMALL;
+        }
+        u64 edge = sipblock(keys, edges[n], sips);
+        xor0 ^= uvs[2*n  ] = edge & EDGEMASK;
+        xor1 ^= uvs[2*n+1] = (edge >> 32) & EDGEMASK;
     }
-    if (j == i) return POW_DEAD_END;  // no matching endpoint
-    i = j^1;
-    n++;
-  } while (i != 0);           // must cycle back to start or we would have found branch
-  return n == PROOFSIZE ? POW_OK : POW_SHORT_CYCLE;
+    if (xor0 | xor1) {              // optional check for obviously bad proofs
+        return POW_NON_MATCHING;
+    }
+    u32 n = 0;
+    u32 i = 0;
+    u32 j;
+    do {                        // follow cycle
+        for (u32 k = j = i; (k = (k+2) % (2*PROOFSIZE)) != i; ) {
+            if (uvs[k] == uvs[i]) { // find other edge endpoint identical to one at i
+                if (j != i) {           // already found one before
+                    return POW_BRANCH;
+                }
+                j = k;
+            }
+        }
+        if (j == i) {
+            return POW_DEAD_END;  // no matching endpoint
+        }
+        i = j^1;
+        n++;
+    } while (i != 0);           // must cycle back to start or we would have found branch
+    return n == PROOFSIZE ? POW_OK : POW_SHORT_CYCLE;
 }
 
 // convenience function for extracting siphash keys from header
-void setheader(const char *header, const u32 headerlen, siphash_keys *keys) {
-  char hdrkey[32];
-  // SHA256((unsigned char *)header, headerlen, (unsigned char *)hdrkey);
-  blake2b((void *)hdrkey, sizeof(hdrkey), (const void *)header, headerlen, 0, 0);
-  keys->setkeys(hdrkey);
+void setheader(const char *header, const u32 headerlen, Siphash_keys *keys) {
+    char hdrkey[32];
+    // SHA256((unsigned char *)header, headerlen, (unsigned char *)hdrkey);
+    blake2b((void *)hdrkey, sizeof(hdrkey), (const void *)header, headerlen, 0, 0);
+    keys->setkeys(hdrkey);
 }
 
 u64 timestamp() {

@@ -249,7 +249,7 @@ typedef u32 zbucket32[NTRIMMEDZ];
 // maintains set of trimmable edges
 class edgetrimmer {
 public:
-  siphash_keys sip_keys;
+  Siphash_keys sip_keys;
   yzbucket<ZBUCKETSIZE> *buckets;
   yzbucket<TBUCKETSIZE> *tbuckets;
   zbucket32 *tedges;
@@ -1195,7 +1195,7 @@ public:
     u32 edge = starty << YZBITS, endedge = edge + NYZ;
   #if NSIPHASH == 4
     const __m128i vnodemask = _mm_set1_epi64x(EDGEMASK);
-    siphash_keys &sip_keys = trimmer.sip_keys;
+    Siphash_keys &sip_keys = trimmer.sip_keys;
     __m128i v0, v1, v2, v3, v4, v5, v6, v7;
     const u32 e2 = 2 * edge;
     __m128i vpacket0 = _mm_set_epi64x(e2+2, e2+0);
