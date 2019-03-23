@@ -50,7 +50,7 @@ private:
     void alloc(void);
     void freemem(void);
 
-    unsigned int getpath(const u32 init_val, u32 *pathes);
+    unsigned int getpath(const u32 init_val, u32 * pathes);
 
 	void path_error(const u32 init_val, u32* pathes, int i, u32 j);
 

@@ -96,8 +96,8 @@ void Cyclebase::add_edge(const u32 u0, const u32 v0) {
 void Cyclebase::cycles(void) {
     u32 u_pathes[kMaxPathLen];
     u32 v_pathes[kMaxPathLen];
-    word_t us2[kMaxPathLen];
-    word_t vs2[kMaxPathLen];
+    word_t u_pathes_2[kMaxPathLen];
+    word_t v_pathes_2[kMaxPathLen];
     for (int i = 0; i < n_cycles_; i++) {
         const word_t u3 = cycle_edges_[i].u;
         const word_t v3 = cycle_edges_[i].v;
@@ -119,41 +119,41 @@ void Cyclebase::cycles(void) {
 
             const word_t u2 = cycle_edges_[i2].u;
             const word_t v2 = cycle_edges_[i2].v;
-            unsigned int idx2_u = getpath(u2, us2);
-            unsigned int idx2_v = getpath(v2, vs2);
-            const word_t root2 = us2[idx2_u]; 
+            unsigned int idx2_u = getpath(u2, u_pathes_2);
+            unsigned int idx2_v = getpath(v2, v_pathes_2);
+            const word_t root2 = u_pathes_2[idx2_u]; 
 
-            assert(root2 == vs2[idx2_v] && root == root2);
+            assert(root2 == v_pathes_2[idx2_v] && root == root2);
 
-            const int rootdist2 = join_path(us2, idx2_u, vs2, idx2_v);
-            if (u_pathes[nu] == us2[idx2_u]) {
-                const int len1 = sharedlen(u_pathes, nu, us2, idx2_u) + sharedlen(u_pathes, nu, vs2, idx2_v);
-                const int len2 = sharedlen(v_pathes, nv, us2, idx2_u) + sharedlen(v_pathes, nv, vs2, idx2_v);
+            const int rootdist2 = join_path(u_pathes_2, idx2_u, v_pathes_2, idx2_v);
+            if (u_pathes[nu] == u_pathes_2[idx2_u]) {
+                const int len1 = sharedlen(u_pathes, nu, u_pathes_2, idx2_u) + sharedlen(u_pathes, nu, v_pathes_2, idx2_v);
+                const int len2 = sharedlen(v_pathes, nv, u_pathes_2, idx2_u) + sharedlen(v_pathes, nv, v_pathes_2, idx2_v);
                 if (len1 + len2 > 0) {
                     printf(" % 4d-cycle found At %d%%\n", cycle_lengths_[i] + cycle_lengths_[i2] - 2*(len1+len2), (int)(i*100L/n_cycles_));
                 }
             } else {
                 const int rd = rootdist - rootdist2;
                 if (rd < 0) {
-                    if (nu + rd > 0 && us2[idx2_u] == u_pathes[nu+rd]) {
-                        const int len = sharedlen(u_pathes, nu+rd, us2, idx2_u) + sharedlen(u_pathes, nu+rd, vs2, idx2_v);
+                    if (nu + rd > 0 && u_pathes_2[idx2_u] == u_pathes[nu+rd]) {
+                        const int len = sharedlen(u_pathes, nu+rd, u_pathes_2, idx2_u) + sharedlen(u_pathes, nu+rd, v_pathes_2, idx2_v);
                         if (len) {
                             printf(" % 4d-cycle found At %d%%\n", cycle_lengths_[i] + cycle_lengths_[i2] - 2*len, (int)(i*100L/n_cycles_));
                         }
-                    } else if (nv+rd > 0 && vs2[idx2_v] == v_pathes[nv+rd]) {
-                        const int len = sharedlen(v_pathes, nv+rd, us2, idx2_u) + sharedlen(v_pathes, nv+rd, vs2, idx2_v);
+                    } else if (nv+rd > 0 && v_pathes_2[idx2_v] == v_pathes[nv+rd]) {
+                        const int len = sharedlen(v_pathes, nv+rd, u_pathes_2, idx2_u) + sharedlen(v_pathes, nv+rd, v_pathes_2, idx2_v);
                         if (len) {
                             printf(" % 4d-cycle found At %d%%\n", cycle_lengths_[i] + cycle_lengths_[i2] - 2*len, (int)(i*100L/n_cycles_));
                         }
                     }
                 } else if (rd > 0) {
-                    if (idx2_u-rd > 0 && u_pathes[nu] == us2[idx2_u-rd]) {
-                        const int len = sharedlen(us2,idx2_u-rd,u_pathes,nu) + sharedlen(us2, idx2_u-rd, v_pathes, nv);
+                    if (idx2_u-rd > 0 && u_pathes[nu] == u_pathes_2[idx2_u-rd]) {
+                        const int len = sharedlen(u_pathes_2,idx2_u-rd,u_pathes,nu) + sharedlen(u_pathes_2, idx2_u-rd, v_pathes, nv);
                         if (len) {
                             printf(" % 4d-cycle found At %d%%\n", cycle_lengths_[i] + cycle_lengths_[i2] - 2*len, (int)(i*100L/n_cycles_));
                         }
-                    } else if (idx2_v-rd > 0 && v_pathes[nv] == vs2[idx2_v-rd]) {
-                        const int len = sharedlen(vs2,idx2_v-rd,u_pathes,nu) + sharedlen(vs2, idx2_v-rd, v_pathes, nv);
+                    } else if (idx2_v-rd > 0 && v_pathes[nv] == v_pathes_2[idx2_v-rd]) {
+                        const int len = sharedlen(v_pathes_2,idx2_v-rd,u_pathes,nu) + sharedlen(v_pathes_2, idx2_v-rd, v_pathes, nv);
                         if (len) {
                             printf(" % 4d-cycle found At %d%%\n", cycle_lengths_[i] + cycle_lengths_[i2] - 2*len, (int)(i*100L/n_cycles_));
                         }
@@ -169,19 +169,19 @@ void Cyclebase::cycles(void) {
 //
 // @param init_val 開始値
 // @param pathes 玉突き結果を入れる配列
-// @return cuckoo配列の最後のindexを返す
-unsigned int Cyclebase::getpath(const u32 init_val, u32 *pathes) {
+// @return cuckoo配列の最後のindexを返す(パスの長さ-1)
+unsigned int Cyclebase::getpath(const u32 init_val, u32 * pathes) {
     unsigned int i = 0;
     pathes[i] = init_val;
     u32 j = init_val;
     while (path_counts_[j] > 0) {
         // パスの数が1以上である
         // パス数を増やす
-        path_counts_[j] += 1;
-        // 玉突き			
+        path_counts_[j]++;
+        // 玉突き
         j = cuckoos_[j];
-        i += 1;
-        if ((int)kMaxPathLen <= i) {
+        i++;
+        if (i >= (int)kMaxPathLen) {
             // error
             path_error(init_val, pathes, i, j);
             assert(false);
@@ -219,6 +219,7 @@ int Cyclebase::join_path(
         const u32 *v_pathes,
         unsigned int &nv)
 {
+    // 短い方のパスの長さ
     int small = nu < nv ? nu : nv;
     nu -= small;
     nv -= small;
