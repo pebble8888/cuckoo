@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A20BE17922464A51009ECE5A /* cyclebase.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A20BE17822464A51009ECE5A /* cyclebase.cpp */; };
+		A20BE19D22464F43009ECE5A /* cuckoo.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A20BE19C22464F43009ECE5A /* cuckoo.cpp */; };
+		A20BE19F22465068009ECE5A /* siphash.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A20BE19E22465068009ECE5A /* siphash.cpp */; };
 		A29AF9BE2231706800C5CEF1 /* simple.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A29AF9BC2231706800C5CEF1 /* simple.cpp */; };
 		A29AF9C12231711B00C5CEF1 /* blake2b-ref.c in Sources */ = {isa = PBXBuildFile; fileRef = A29AF9C02231711B00C5CEF1 /* blake2b-ref.c */; };
 /* End PBXBuildFile section */
@@ -24,6 +27,10 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		A20BE17822464A51009ECE5A /* cyclebase.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = cyclebase.cpp; path = ../../cyclebase.cpp; sourceTree = "<group>"; };
+		A20BE17A22464B4F009ECE5A /* cuckoo.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = cuckoo.h; path = ../../cuckoo.h; sourceTree = "<group>"; };
+		A20BE19C22464F43009ECE5A /* cuckoo.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = cuckoo.cpp; path = ../../cuckoo.cpp; sourceTree = "<group>"; };
+		A20BE19E22465068009ECE5A /* siphash.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = siphash.cpp; path = ../../../crypto/siphash.cpp; sourceTree = "<group>"; };
 		A29AF9B22231703500C5CEF1 /* cuckoo_xcode */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = cuckoo_xcode; sourceTree = BUILT_PRODUCTS_DIR; };
 		A29AF9BC2231706800C5CEF1 /* simple.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = simple.cpp; path = ../../simple.cpp; sourceTree = "<group>"; };
 		A29AF9BD2231706800C5CEF1 /* cyclebase.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = cyclebase.hpp; path = ../../cyclebase.hpp; sourceTree = "<group>"; };
@@ -62,9 +69,13 @@
 			isa = PBXGroup;
 			children = (
 				A29AF9C02231711B00C5CEF1 /* blake2b-ref.c */,
-				A29AF9BF2231710000C5CEF1 /* siphash.hpp */,
+				A20BE19C22464F43009ECE5A /* cuckoo.cpp */,
+				A20BE17A22464B4F009ECE5A /* cuckoo.h */,
+				A20BE17822464A51009ECE5A /* cyclebase.cpp */,
 				A29AF9BD2231706800C5CEF1 /* cyclebase.hpp */,
 				A29AF9BC2231706800C5CEF1 /* simple.cpp */,
+				A20BE19E22465068009ECE5A /* siphash.cpp */,
+				A29AF9BF2231710000C5CEF1 /* siphash.hpp */,
 			);
 			path = cuckoo_xcode;
 			sourceTree = "<group>";
@@ -125,8 +136,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A20BE19F22465068009ECE5A /* siphash.cpp in Sources */,
 				A29AF9BE2231706800C5CEF1 /* simple.cpp in Sources */,
+				A20BE17922464A51009ECE5A /* cyclebase.cpp in Sources */,
 				A29AF9C12231711B00C5CEF1 /* blake2b-ref.c in Sources */,
+				A20BE19D22464F43009ECE5A /* cuckoo.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

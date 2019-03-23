@@ -21,7 +21,7 @@ class cuckoo_ctx {
 private:
     Siphash_keys sip_keys_;
     word_t       easiness_;
-    Cyclebase    cb_;
+    Cyclebase    cb_ = Cyclebase(NCUCKOO);
 
 public:
     void cycles(void) {
@@ -43,12 +43,6 @@ public:
         word_t easy_ness)
     {
         easiness_ = easy_ness;
-        cb_.alloc();
-    }
-
-    ~cuckoo_ctx()
-    {
-        cb_.freemem();
     }
 
     word_t bytes()
@@ -60,6 +54,7 @@ public:
     {
         ((u32 *)headernonce)[len/sizeof(u32)-1] = htole32(nonce); // place nonce at end
         setheader(headernonce, len, &sip_keys_);
+        // 何をリセットする?
         cb_.reset_count();
     }
 

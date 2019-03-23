@@ -12,6 +12,18 @@
 // uint32_t * 20 
 #define HEADERLEN 80
 
+char LAST_ERROR_REASON[MAX_NAME_LEN];
+const char *errstr[] = {
+    "OK",
+    "wrong header length",
+    "edge too big",
+    "edges not ascending",
+    "endpoints don't match up",
+    "branch in cycle",
+    "cycle dead ends",
+    "cycle too short"
+};
+
 int main(int argc, char **argv) {
     const char *header = "";
     int nonce = 0;
