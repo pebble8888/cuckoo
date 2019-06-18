@@ -51,8 +51,7 @@ int main(int argc, char **argv) {
     ((u32 *)headernonce)[HEADERLEN/sizeof(u32)-1] = htole32(nonce);
     Siphash_keys keys;
     setheader(headernonce, sizeof(headernonce), &keys);
-    printf("Verifying size %d proof for cuckoo%d(\"%s\",%d)\n",
-            PROOFSIZE, EDGEBITS+1, header, nonce);
+    printf("Verifying size %d proof for cuckoo%d(\"%s\",%d)\n", PROOFSIZE, EDGEBITS+1, header, nonce);
     for (int nsols = 0; scanf(" Solution") == 0; nsols++) {
         word_t nonces[PROOFSIZE];
         for (int n = 0; n < PROOFSIZE; n++) {
@@ -66,8 +65,9 @@ int main(int argc, char **argv) {
             printf("Verified with cyclehash ");
             unsigned char cyclehash[32];
             blake2b((void *)cyclehash, sizeof(cyclehash), (const void *)nonces, sizeof(nonces), 0, 0);
-            for (int i=0; i<32; i++)
+            for (int i=0; i<32; i++) {
                 printf("%02x", cyclehash[i]);
+            }
             printf("\n");
         } else {
             printf("FAILED due to %s\n", errstr[pow_rc]);

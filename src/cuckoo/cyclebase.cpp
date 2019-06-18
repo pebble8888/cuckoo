@@ -1,197 +1,204 @@
-#include "cyclebase.hpp"
+#include "cyclebase.h"
 
-
-void Cyclebase::alloc(void) {
-    cuckoos_ = new word_t[n_cuckoo_];
-    memset(cuckoos_, 0, sizeof(word_t) * n_cuckoo_);
-    path_counts_ = new u32[n_cuckoo_];
-    memset(path_counts_, 0, sizeof(u32) * n_cuckoo_);
+Cyclebase::Cyclebase(uint32_t num_nodes)
+    : num_nodes_(num_nodes)
+{
+    nodes_ = new word_t[num_nodes_];
+    path_counts_ = new uint32_t[num_nodes_];
+    for (int i = 0; i < num_nodes_; ++i) {
+        nodes_[i] = 0;
+        path_counts_ = 0;
+    }
 }
 
-void Cyclebase::freemem(void) { // not a destructor, as memory may have been allocated elsewhere, bypassing alloc()
-    delete [] cuckoos_;
+Cyclebase::~Cyclebase()
+{
+    delete [] nodes_;
     delete [] path_counts_;
 }
 
 // 何をリセットする? 
-void Cyclebase::reset_count(void) {
-    for (auto i = 0; i < n_cuckoo_; ++i) {
-        cuckoos_[i] = -1; // for prevcycle nil
+void Cyclebase::reset_count(void)
+{
+    for (auto i = 0; i < num_nodes_; ++i) {
+        nodes_[i] = kNone; // for prevcycle nil
         path_counts_[i] = 0;
     }
-    n_cycles_ = 0;
+    num_cycles_ = 0;
 }
 
-void Cyclebase::add_edge(const u32 u0, const u32 v0) {
-    u32 u_pathes[kMaxPathLen]; // work領域
-    u32 v_pathes[kMaxPathLen]; // work領域
-    const u32 u = u0 << 1; // u0の値を2倍する
-    const u32 v = (v0 << 1) | 1; // v0の値を2倍して1を足す
-    unsigned int nu = getpath(u, u_pathes);
-    unsigned int nv = getpath(v, v_pathes);
-    if (u_pathes[nu] == v_pathes[nv]) {
-        // cuckoo配列の最後の値が一致している: found cycle
+/**
+ * @brief 
+ * @param u_bare 偶奇なし [0, NEDGES)
+ * @param v_bare 偶奇なし [0, NEDGES)
+ */
+void Cyclebase::add_edge(const uint32_t u_bare, const uint32_t v_bare)
+{
+    uint32_t u_pathes[kMaxPathLen]; // work領域
+    uint32_t v_pathes[kMaxPathLen]; // work領域
+    const uint32_t u = 2 * u_bare; // u is even
+    const uint32_t v = 2 * v_bare + 1; // v is odd
+    unsigned int u_path_index = append_path(u, u_pathes);
+    unsigned int v_path_index = append_path(v, v_pathes);
+    if (u_pathes[u_path_index] == v_pathes[v_path_index]) {
+        // パス配列の最後の値(つまり先頭の値)が一致している: サイクルが見つかった
         // 要求される長さとは限らない
         
         // このとき path_counts_ は増加させない(なぜか?)
 
-        join_path(u_pathes, nu, v_pathes, nv);
-        const int len = nu + nv + 1;
+        join_path(u_pathes, u_path_index, v_pathes, v_path_index);
+        const int len = u_path_index + v_path_index + 1;
 
-        printf("% 4d-cycle found\n", len);
+        printf("% 4d-cycle found in add_edge()\n", len);
 
         // サイクルの位置を保存する
-        cycle_edges_[n_cycles_].u = u;
-        cycle_edges_[n_cycles_].v = v;
+        edges_[num_cycles_].u = u;
+        edges_[num_cycles_].v = v;
         // サイクルの長さを保存する
-        cycle_lengths_[n_cycles_] = len;
+        cycle_lengths_[num_cycles_] = len;
         // サイクル数を増加
-        n_cycles_ += 1;
+        num_cycles_ += 1;
         if (len == PROOFSIZE) {
             // 要求サイズを満たしたサイクルである
-            print_solution(u_pathes, nu, v_pathes, nv);
+            print_solution(u_pathes, u_path_index, v_pathes, v_path_index);
         }
-        assert(n_cycles_ < MAXCYCLES);
-    } else if (nu < nv) {
+        assert(num_cycles_ < MAXCYCLES);
+    } else if (u_path_index < v_path_index) {
         // u側サイクルの方が少ない
         // 少ない側(u)のパスを伸ばす
-        const auto i = u_pathes[nu];
-        path_counts_[i] += 1;
-        // 少ない側(u)のカッコーを更新する
-        for (int k = nu; k > 0; --k) {
+        const auto i = u_pathes[u_path_index];
+        ++path_counts_[i];
+        // 少ない側(u)のノードを更新する
+        for (int k = u_path_index; k > 0; --k) {
             const auto j = u_pathes[k];
-            if (cuckoos_[j] != -1) {
-                printf("cuckoo!\n");
-            }
-            cuckoos_[j] = u_pathes[k-1];
-            printf("cuckoos_[%d]: %d\n", j, cuckoos_[j]);				
+            nodes_[j] = u_pathes[k-1];
         }
-        if (cuckoos_[u] != -1) {
-            printf("cuckoo!\n");
-        }
-        cuckoos_[u] = v;
-        printf("cuckoos_[%d]: %d\n", u, cuckoos_[u]);							
+        nodes_[u] = v;
     } else {
         // v側サイクルの方が少ないもしくはサイクルなし
         // 少ない側(v)のパスを伸ばす
-        const auto i = v_pathes[nv];
-        path_counts_[i] += 1;
-        // 少ない側(v)のカッコーを更新する
-        for (int k = nv; k > 0; --k) {
+        const auto i = v_pathes[v_path_index];
+        ++path_counts_[i];
+        // 少ない側(v)のノードを更新する
+        for (int k = v_path_index; k > 0; --k) {
             const auto j = v_pathes[k];
-            if (cuckoos_[j] != -1) {
-                printf("cukcoo!\n");
-            }				
-            cuckoos_[j] = v_pathes[k-1];
-            printf("cuckoos_[%d]: %d\n", j, cuckoos_[j]);				
+            nodes_[j] = v_pathes[k-1];
         }
-        if (cuckoos_[v] != -1) {
-            printf("cuckoo!\n");
-        }
-        cuckoos_[v] = u;
-        printf("cuckoos_[%d]: %d\n", v, cuckoos_[v]);							
+        nodes_[v] = u;
     }
 }
 
-void Cyclebase::cycles(void) {
-    u32 u_pathes[kMaxPathLen];
-    u32 v_pathes[kMaxPathLen];
+// TODO:メソッド名がわかりづらい
+void Cyclebase::cycles(void)
+{
+    uint32_t u_pathes[kMaxPathLen];
+    uint32_t v_pathes[kMaxPathLen];
     word_t u_pathes_2[kMaxPathLen];
     word_t v_pathes_2[kMaxPathLen];
-    for (int i = 0; i < n_cycles_; i++) {
-        const word_t u3 = cycle_edges_[i].u;
-        const word_t v3 = cycle_edges_[i].v;
-        unsigned int nu = getpath(u3, u_pathes);
-        unsigned int nv = getpath(v3, v_pathes);
-        const word_t root = u_pathes[nu];
 
-        assert(root == v_pathes[nv]);
+    uint32_t prevcycle[MAXCYCLES];
 
-        prevcycle_[i] = cuckoos_[root];
-        int i2 = cuckoos_[root]; 
-        cuckoos_[root] = i;
+    for (int i = 0; i < num_cycles_; i++) {
+        const word_t u3 = edges_[i].u;
+        const word_t v3 = edges_[i].v;
+        unsigned int u_path_index = append_path(u3, u_pathes);
+        unsigned int v_path_index = append_path(v3, v_pathes);
+        const word_t root = u_pathes[u_path_index];
+
+        assert(root == v_pathes[v_path_index]);
+
+        prevcycle[i] = nodes_[root];
+        int i2 = nodes_[root]; 
+        nodes_[root] = i;
         if (i2 < 0) {
             continue;
         }
-        const int rootdist = join_path(u_pathes, nu, v_pathes, nv);
+        const int rootdist = join_path(u_pathes, u_path_index, v_pathes, v_path_index);
         do {
             printf("chord found at cycleids %d %d\n", i2, i);
 
-            const word_t u2 = cycle_edges_[i2].u;
-            const word_t v2 = cycle_edges_[i2].v;
-            unsigned int idx2_u = getpath(u2, u_pathes_2);
-            unsigned int idx2_v = getpath(v2, v_pathes_2);
-            const word_t root2 = u_pathes_2[idx2_u]; 
+            const word_t u2 = edges_[i2].u;
+            const word_t v2 = edges_[i2].v;
+            unsigned int u_idx2 = append_path(u2, u_pathes_2);
+            unsigned int v_idx2 = append_path(v2, v_pathes_2);
+            const word_t root2 = u_pathes_2[u_idx2]; 
 
-            assert(root2 == v_pathes_2[idx2_v] && root == root2);
+            assert(root2 == v_pathes_2[v_idx2] && root == root2);
 
-            const int rootdist2 = join_path(u_pathes_2, idx2_u, v_pathes_2, idx2_v);
-            if (u_pathes[nu] == u_pathes_2[idx2_u]) {
-                const int len1 = sharedlen(u_pathes, nu, u_pathes_2, idx2_u) + sharedlen(u_pathes, nu, v_pathes_2, idx2_v);
-                const int len2 = sharedlen(v_pathes, nv, u_pathes_2, idx2_u) + sharedlen(v_pathes, nv, v_pathes_2, idx2_v);
+            const int rootdist2 = join_path(u_pathes_2, u_idx2, v_pathes_2, v_idx2);
+            if (u_pathes[u_path_index] == u_pathes_2[u_idx2]) {
+                const int len1 = sharedlen(u_pathes, u_path_index, u_pathes_2, u_idx2) + sharedlen(u_pathes, u_path_index, v_pathes_2, v_idx2);
+                const int len2 = sharedlen(v_pathes, v_path_index, u_pathes_2, u_idx2) + sharedlen(v_pathes, v_path_index, v_pathes_2, v_idx2);
                 if (len1 + len2 > 0) {
-                    printf(" % 4d-cycle found At %d%%\n", cycle_lengths_[i] + cycle_lengths_[i2] - 2*(len1+len2), (int)(i*100L/n_cycles_));
+                    printf(" % 4d-cycle found At %d%%\n", cycle_lengths_[i] + cycle_lengths_[i2] - 2*(len1+len2), (int)(i*100L/num_cycles_));
                 }
             } else {
                 const int rd = rootdist - rootdist2;
                 if (rd < 0) {
-                    if (nu + rd > 0 && u_pathes_2[idx2_u] == u_pathes[nu+rd]) {
-                        const int len = sharedlen(u_pathes, nu+rd, u_pathes_2, idx2_u) + sharedlen(u_pathes, nu+rd, v_pathes_2, idx2_v);
-                        if (len) {
-                            printf(" % 4d-cycle found At %d%%\n", cycle_lengths_[i] + cycle_lengths_[i2] - 2*len, (int)(i*100L/n_cycles_));
+                    if (u_path_index + rd > 0 && u_pathes_2[u_idx2] == u_pathes[u_path_index + rd]) {
+                        const int len = sharedlen(u_pathes, u_path_index + rd, u_pathes_2, u_idx2) + sharedlen(u_pathes, u_path_index + rd, v_pathes_2, v_idx2);
+                        if (len > 0) {
+                            printf(" % 4d-cycle found At %d%%\n", cycle_lengths_[i] + cycle_lengths_[i2] - 2*len, (int)(i*100L/num_cycles_));
                         }
-                    } else if (nv+rd > 0 && v_pathes_2[idx2_v] == v_pathes[nv+rd]) {
-                        const int len = sharedlen(v_pathes, nv+rd, u_pathes_2, idx2_u) + sharedlen(v_pathes, nv+rd, v_pathes_2, idx2_v);
-                        if (len) {
-                            printf(" % 4d-cycle found At %d%%\n", cycle_lengths_[i] + cycle_lengths_[i2] - 2*len, (int)(i*100L/n_cycles_));
+                    } else if (v_path_index + rd > 0 && v_pathes_2[v_idx2] == v_pathes[v_path_index + rd]) {
+                        const int len = sharedlen(v_pathes, v_path_index + rd, u_pathes_2, u_idx2) + sharedlen(v_pathes, v_path_index + rd, v_pathes_2, v_idx2);
+                        if (len > 0) {
+                            printf(" % 4d-cycle found At %d%%\n", cycle_lengths_[i] + cycle_lengths_[i2] - 2*len, (int)(i*100L/num_cycles_));
                         }
                     }
                 } else if (rd > 0) {
-                    if (idx2_u-rd > 0 && u_pathes[nu] == u_pathes_2[idx2_u-rd]) {
-                        const int len = sharedlen(u_pathes_2,idx2_u-rd,u_pathes,nu) + sharedlen(u_pathes_2, idx2_u-rd, v_pathes, nv);
-                        if (len) {
-                            printf(" % 4d-cycle found At %d%%\n", cycle_lengths_[i] + cycle_lengths_[i2] - 2*len, (int)(i*100L/n_cycles_));
+                    if (u_idx2-rd > 0 && u_pathes[u_path_index] == u_pathes_2[u_idx2 - rd]) {
+                        const int len = sharedlen(u_pathes_2, u_idx2 - rd, u_pathes, u_path_index) + sharedlen(u_pathes_2, u_idx2 - rd, v_pathes, v_path_index);
+                        if (len > 0) {
+                            printf(" % 4d-cycle found At %d%%\n", cycle_lengths_[i] + cycle_lengths_[i2] - 2*len, (int)(i*100L/num_cycles_));
                         }
-                    } else if (idx2_v-rd > 0 && v_pathes[nv] == v_pathes_2[idx2_v-rd]) {
-                        const int len = sharedlen(v_pathes_2,idx2_v-rd,u_pathes,nu) + sharedlen(v_pathes_2, idx2_v-rd, v_pathes, nv);
-                        if (len) {
-                            printf(" % 4d-cycle found At %d%%\n", cycle_lengths_[i] + cycle_lengths_[i2] - 2*len, (int)(i*100L/n_cycles_));
+                    } else if (v_idx2-rd > 0 && v_pathes[v_path_index] == v_pathes_2[v_idx2-rd]) {
+                        const int len = sharedlen(v_pathes_2, v_idx2 - rd, u_pathes, u_path_index) + sharedlen(v_pathes_2, v_idx2 - rd, v_pathes, v_path_index);
+                        if (len > 0) {
+                            printf(" % 4d-cycle found At %d%%\n", cycle_lengths_[i] + cycle_lengths_[i2] - 2*len, (int)(i*100L/num_cycles_));
                         }
                     }
                 } // else cyles are disjoint
             }
-            i2 = prevcycle_[i2];
+            i2 = prevcycle[i2];
         } while (i2 >= 0);
     }
 }
 
-// pathのcuckoo配列を取得する,同時にパス数を増加させる
-//
-// @param init_val 開始値
-// @param pathes 玉突き結果を入れる配列
-// @return cuckoo配列の最後のindexを返す(パスの長さ-1)
-unsigned int Cyclebase::getpath(const u32 init_val, u32 * pathes) {
-    unsigned int i = 0;
-    pathes[i] = init_val;
-    u32 j = init_val;
+/** 
+ * @brief   pathのcuckoo配列を取得する,同時にパス数を増加させる
+ * @param [in]  newval : 今回追加する値 (odd or even) [0, NEDGES)
+ * @param [out] pathes : 玉突き結果を入れる配列の先頭アドレス, 先頭側に最後に追加したものが入る 配列の最大長はkMaxPathLen
+ * @return  最後に追加したパスのインデックス(1以上の場合,パスの数-1)を返す
+ * @note    path_count_の値のみを変更しnodes_の値は変更しない  
+ */
+unsigned int Cyclebase::append_path(const uint32_t newval, uint32_t * pathes)
+{
+    unsigned int path_index = 0;
+    pathes[path_index] = newval;
+    uint32_t j = newval;
     while (path_counts_[j] > 0) {
-        // パスの数が1以上である
+        // パスの数が1以上である,nodes_ にはすでに値が入っている
+
         // パス数を増やす
-        path_counts_[j]++;
-        // 玉突き
-        j = cuckoos_[j];
-        i++;
-        if (i >= (int)kMaxPathLen) {
-            // error
-            path_error(init_val, pathes, i, j);
+        ++path_counts_[j];
+        // 入っている値を取り出す
+        j = nodes_[j];
+        ++path_index;
+        // パスが最大値を超えていないかチェックする
+        if (path_index >= (int)kMaxPathLen) {
+            // fatal error
+            path_error(newval, pathes, path_index, j);
             assert(false);
         }
-        pathes[i] = j;
+        // パスの値をチェックする
+        pathes[path_index] = j;
     }
-    return i;
+    return path_index;
 }
 
-void Cyclebase::path_error(const u32 init_val, u32* pathes, int i, u32 j) {
+void Cyclebase::path_error(const uint32_t init_val, uint32_t* pathes, int i, uint32_t j)
+{
     while (true) {
         if (i == 0) {
             --i;
@@ -212,51 +219,95 @@ void Cyclebase::path_error(const u32 init_val, u32* pathes, int i, u32 j) {
     exit(0);		
 }
 
-// ???
+/**
+ * @brief 
+ * @param [in]      u_pathes
+ * @param [in/out]  u_path_index
+ * @param [in]      v_pathes
+ * @param [in/out]  v_path_index
+ * @return 
+ */
 int Cyclebase::join_path(
-        const u32 *u_pathes,
-        unsigned int &nu,
-        const u32 *v_pathes,
-        unsigned int &nv)
+        const uint32_t *u_pathes,
+        unsigned int &u_path_index,
+        const uint32_t *v_pathes,
+        unsigned int &v_path_index)
 {
-    // 短い方のパスの長さ
-    int small = nu < nv ? nu : nv;
-    nu -= small;
-    nv -= small;
-    for (; u_pathes[nu] != v_pathes[nv]; nu++, nv++) {
+    // u_path_index = 2, v_path_index = 3 の場合
+    // small = 2
+    int small = std::min<int>(u_path_index, v_path_index);
+    u_path_index -= small;
+    v_path_index -= small;
+
+    // u_path_index = 0
+    // v_path_index = 1
+
+    while (u_pathes[u_path_index] != v_pathes[v_path_index]) {
         small--;
+        ++u_path_index;
+        ++v_path_index;
     }
     return small;
 }
 
-void Cyclebase::print_record_edge(u32 i, u32 u, u32 v) {
+void Cyclebase::print_record_edge(uint32_t u, uint32_t v)
+{
     printf(" (%x,%x)", u, v);
 }
 
-void Cyclebase::print_solution(const u32 *u_pathes, int nu, const u32 *v_pathes, int nv) {
-    printf("Nodes");
+void Cyclebase::print_solution(
+    const uint32_t *u_pathes,
+    int u_path_index,
+    const uint32_t *v_pathes,
+    int v_path_index)
+{
+    printf("print_solution() Nodes");
 
-    u32 ni = 0;
-    print_record_edge(ni, *u_pathes, *v_pathes);
+    uint32_t ni = 0;
+    print_record_edge(*u_pathes, *v_pathes);
     ni++;
-    while (nu != 0) {
-        nu--;
-        print_record_edge(ni, u_pathes[(nu+1)&~1], u_pathes[nu|1]); // u's in even position; v's in odd
+    while (u_path_index != 0) {
+        u_path_index--;
+        // u's in even position; v's in odd
+        print_record_edge(u_pathes[(u_path_index+1)&~1], u_pathes[u_path_index|1]);
         ni++;
     }
-    while (nv != 0) {
-        nv--;
-        print_record_edge(ni, v_pathes[nv|1], v_pathes[(nv+1)&~1]); // u's in odd position; v's in even
+    while (v_path_index != 0) {
+        v_path_index--;
+        // u's in odd position; v's in even
+        print_record_edge(v_pathes[v_path_index|1], v_pathes[(v_path_index+1)&~1]);
         ni++;
     } 
 
     printf("\n");
 }
 
-int Cyclebase::sharedlen(const u32 *u_pathes, int nu, const u32 *v_pathes, int nv) {
+/**
+ * u_pathes = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+ * v_pathes = [0, 1, 2, 3, 4, 0, 6, 7, 8, 9]
+ * u_path_index = 9
+ * v_path_index = 9
+ * の場合は len = 3 となる
+ */
+int Cyclebase::sharedlen(const uint32_t *u_pathes,
+                         int u_path_index,
+                         const uint32_t *v_pathes,
+                         int v_path_index)
+{
     int len = 0;
-    for (; nu-- && nv-- && u_pathes[nu] == v_pathes[nv]; len++){
-        ;
+    while (true) {
+        if (u_path_index > 0 && v_path_index > 0) {
+            --u_path_index;
+            --v_path_index;
+            if (u_pathes[u_path_index] == v_pathes[v_path_index]) {
+                ++len;
+            } else {
+                break;
+            }
+        } else {
+            break;
+        }
     }
     return len;
 }
+

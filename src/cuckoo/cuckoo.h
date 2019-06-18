@@ -10,18 +10,21 @@
 #include <chrono>
 #include <ctime>
 #include "../crypto/blake2.h"
-#include "../crypto/siphash.hpp"
+#include "../crypto/SiphashKeys.hpp"
 
 #ifdef SIPHASH_COMPAT
 #include <stdio.h>
 #endif
 
 // proof-of-work parameters
+/*
 #ifndef EDGEBITS
 // the main parameter is the 2-log of the graph size,
 // which is the size in bits of the node identifiers
 #define EDGEBITS 29
 #endif
+ */
+
 #ifndef PROOFSIZE
 // the next most important parameter is the (even) length
 // of the cycle to be found. a minimum of 12 is recommended
@@ -39,7 +42,7 @@ typedef uint64_t u64;
 #if EDGEBITS > 30
 typedef uint64_t word_t;
 #elif EDGEBITS > 14
-typedef u32 word_t;
+typedef uint32_t word_t;
 #else // if EDGEBITS <= 14
 typedef uint16_t word_t;
 #endif
@@ -50,7 +53,8 @@ typedef uint16_t word_t;
 #define EDGEMASK ((word_t)NEDGES - 1)
 
 // Common Solver parameters, to return to caller
-struct SolverParams {
+struct SolverParams
+{
     u32 nthreads = 0;
     u32 ntrims = 0;
     bool showcycle;
@@ -78,12 +82,14 @@ struct SolverParams {
 
 // Solutions result structs to be instantiated by caller,
 // and filled by solver if desired
-struct Solution {
+struct Solution
+{
     u64 nonce = 0;
     u64 proof[PROOFSIZE];
 };
 
-struct SolverSolutions {
+struct SolverSolutions
+{
     u32 edge_bits = 0;
     u32 num_sols = 0;
     Solution sols[MAX_SOLS];
@@ -97,7 +103,8 @@ extern char LAST_ERROR_REASON[MAX_NAME_LEN];
 
 // Solver statistics, to be instantiated by caller
 // and filled by solver if desired
-struct SolverStats {
+struct SolverStats
+{
     u32 device_id = 0;
     u32 edge_bits = 0;
     char plugin_name[MAX_NAME_LEN]; // will be filled in caller-side
@@ -110,10 +117,18 @@ struct SolverStats {
     u64 last_solution_time = 0;
 };
 
-// generate edge endpoint in cuckoo graph without partition bit
-word_t sipnode(Siphash_keys *keys, word_t edge, u32 uorv);
 
-enum verify_code {
+/**
+ @brief generate edge endpoint in cuckoo graph without partition bit
+ @param siphash : ハッシュ生成器
+ @param edge : エッジの値 [0, NEDGES)
+ @param uorv : 0 or 1
+ @return エッジの値*2 + uorv のハッシュを取りエッジ値の範囲内に納めたもの [0, NEDGES)
+ */
+word_t cuckoo_sipnode(const Siphash& siphash, word_t edge, u32 uorv);
+
+enum class VerifyCode
+{
     POW_OK, 
     POW_HEADER_LENGTH,
     POW_TOO_BIG,
@@ -127,20 +142,19 @@ enum verify_code {
 extern const char *errstr[];
 
 // verify that edges are ascending and form a cycle in header-generated graph
-int verify(word_t edges[PROOFSIZE], Siphash_keys *keys);
+// num_edges = PROOFSIZE
+VerifyCode cuckoo_verifyPOW(word_t* edges, uint32_t num_edges, const Siphash& siphash);
 
 // convenience function for extracting siphash keys from header
-void setheader(const char *header, const u32 headerlen, Siphash_keys *keys);
+void cuckoo_initialize_hasher(const char *header, const u32 headerlen, Siphash& siphash);
 
-// edge endpoint in cuckoo graph with partition bit
-word_t sipnode_(Siphash_keys *keys, word_t edge, u32 uorv);
-
-u64 timestamp();
+u64 cuckoo_timestamp();
 
 /////////////////////////////////////////////////////////////////
 // Declarations to make it easier for callers to link as required
 /////////////////////////////////////////////////////////////////
 
+/*
 #ifndef C_CALL_CONVENTION
 #define C_CALL_CONVENTION 0
 #endif
@@ -156,9 +170,6 @@ u64 timestamp();
 #ifndef SQUASH_OUTPUT
 #define SQUASH_OUTPUT 0
 #endif
+*/
 
-void print_log(const char *fmt, ...);
-
-//////////////////////////////////////////////////////////////////
-// END caller QOL
-//////////////////////////////////////////////////////////////////
+void cuckoo_print_log(const char *fmt, ...);

@@ -8,80 +8,121 @@
 
 #include "cuckoo.h"
 
-int verify(word_t edges[PROOFSIZE], Siphash_keys *keys)
+/**
+ @brief ProofOfWork をベリファイする
+ @param edges エッジ
+ @param num_edges エッジの数 多分42
+ @param siphash ハッシュ生成器
+ */
+VerifyCode cuckoo_verifyPOW(word_t* edges, uint32_t num_edges, const Siphash& siphash)
 {
     word_t uvs[2*PROOFSIZE];
-    word_t xor0 = 0, xor1 = 0;
-    for (u32 n = 0; n < PROOFSIZE; n++) {
+    word_t xor0 = 0; // for optional check
+    word_t xor1 = 0; // for optional check
+    // PROOFSIZE = 42
+    // EDGEBITS = 19
+    // NEDGES = 1 << 19 = 524288
+    for (u32 n = 0; n < PROOFSIZE; ++n) {
         if (edges[n] > EDGEMASK) {
-            return POW_TOO_BIG;
+            // エッジに入っている値が大きすぎる
+            return VerifyCode::POW_TOO_BIG;
         }
-        if (n && edges[n] <= edges[n-1]) {
-            return POW_TOO_SMALL;
+        if (n > 0 && edges[n-1] >= edges[n]) {
+            // エッジの値は昇順でなければならない
+            return VerifyCode::POW_TOO_SMALL;
         }
-        xor0 ^= uvs[2*n  ] = sipnode(keys, edges[n], 0);
-        xor1 ^= uvs[2*n+1] = sipnode(keys, edges[n], 1);
+        uvs[2*n] = cuckoo_sipnode(siphash, edges[n], 0);
+        xor0 ^= uvs[2*n];
+
+        uvs[2*n+1] = cuckoo_sipnode(siphash, edges[n], 1);
+        xor1 ^= uvs[2*n+1];
     }
-    if (xor0|xor1) {              // optional check for obviously bad proofs
-        return POW_NON_MATCHING;
+    if ((xor0|xor1) != 0) {
+        // optional check for obviously bad proofs
+        // --> ??? 後回しというか無視してよい
+        return VerifyCode::POW_NON_MATCHING;
     }
-    u32 n = 0;
-    u32 i = 0;
-    u32 j;
-    do {                        // follow cycle
-        for (u32 k = j = i; (k = (k+2) % (2*PROOFSIZE)) != i; ) {
-            if (uvs[k] == uvs[i]) { // find other edge endpoint identical to one at i
-                if (j != i) {           // already found one before
-                    return POW_BRANCH;
+    uint32_t n = 0;
+    uint32_t i = 0;
+    while (true) {
+        // follow cycle
+        uint32_t j = i;
+        for (uint32_t k = i; ;) {
+            k = (k+2) % (2 * PROOFSIZE);
+            if (k == i) {
+                // 1周した
+                break;
+            }
+            if (uvs[k] == uvs[i]) {
+                // find other edge endpoint identical to one at i
+                if (j != i) {
+                    // already found one before
+                    return VerifyCode::POW_BRANCH;
                 }
                 j = k;
             }
         }
         if (j == i) {
-            return POW_DEAD_END;  // no matching endpoint
+            // no matching endpoint
+            return VerifyCode::POW_DEAD_END;
         }
+        // 下位の1ビットを反転させる
         i = j^1;
         n++;
-    } while (i != 0);           // must cycle back to start or we would have found branch
-    return n == PROOFSIZE ? POW_OK : POW_SHORT_CYCLE;
+        // must cycle back to start or we would have found branch
+        if (i == 0) {
+            break;
+        }
+    }
+    if (n == PROOFSIZE) {
+        return VerifyCode::POW_OK;
+    } else {
+        return VerifyCode::POW_SHORT_CYCLE;
+    }
 }
 
-void setheader(const char *header, const u32 headerlen, Siphash_keys *keys) {
-    char hdrkey[32];
-    // SHA256((unsigned char *)header, headerlen, (unsigned char *)hdrkey);
+/**
+ * @brief ハッシュ生成器を初期化する
+ * @param header ヘッダの先頭ポインタ
+ * @param headerlen ヘッダの長さ
+ * @param siphash ハッシュ生成器
+ */
+void cuckoo_initialize_hasher(const char *header, const u32 headerlen, Siphash& siphash)
+{
+    char hdrkey[32]; // 8bit * 32 = 64bit * 4
+    // blake2bの第２引数は出力サイズ, 64バイト以下1バイト以上であればOK
     blake2b((void *)hdrkey, sizeof(hdrkey), (const void *)header, headerlen, 0, 0);
-#ifdef SIPHASH_COMPAT
-    u64 *k = (u64 *)hdrkey;
-    u64 k0 = k[0];
-    u64 k1 = k[1];
-    printf("k0 k1 %lx %lx\n", k0, k1);
-    k[0] = k0 ^ 0x736f6d6570736575ULL;
-    k[1] = k1 ^ 0x646f72616e646f6dULL;
-    k[2] = k0 ^ 0x6c7967656e657261ULL;
-    k[3] = k1 ^ 0x7465646279746573ULL;
-#endif
-    keys->setkeys(hdrkey);
+    // ここではSIPHASHのinitializationロジックを使わずにblake2b()ハッシュの結果をInitializationとして使う.
+    // setkey()の引数は64bit * 4 = 32バイトの長さが必要である
+    siphash.setkeys(hdrkey);
 }
 
-word_t sipnode_(Siphash_keys *keys, word_t edge, u32 uorv) {
-    return sipnode(keys, edge, uorv) << 1 | uorv;
+/**
+ * @brief エッジの値を2倍してuorvの値を加算したもののハッシュ値をエッジマスクしたものを返す
+ * @param siphash : ハッシュ生成器
+ * @param edge : エッジの値
+ * @param uorv : 0 or 1
+ */
+word_t cuckoo_sipnode(const Siphash& siphash, word_t edge, u32 uorv)
+{
+    assert(uorv == 0 || uorv == 1);
+    return siphash.siphash24(2*edge + uorv) & EDGEMASK;
 }
 
-word_t sipnode(Siphash_keys *keys, word_t edge, u32 uorv) {
-    return keys->siphash24(2*edge + uorv) & EDGEMASK;
-}
-
-u64 timestamp() {
+u64 cuckoo_timestamp(void)
+{
     using namespace std::chrono;
-    high_resolution_clock::time_point now = high_resolution_clock::now();
-    auto dn = now.time_since_epoch();
+    const auto now = high_resolution_clock::now();
+    const auto dn = now.time_since_epoch();
     return dn.count();
 }
 
-void print_log(const char *fmt, ...) {
-    if (SQUASH_OUTPUT) return;
+void cuckoo_print_log(const char *fmt, ...)
+{
+    //if (SQUASH_OUTPUT) return;
     va_list args;
     va_start(args, fmt);
     vprintf(fmt, args);
     va_end(args);
 }
+
